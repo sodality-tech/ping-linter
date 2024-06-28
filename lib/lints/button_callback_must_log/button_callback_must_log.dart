@@ -35,16 +35,17 @@ class ButtonCallbackMustLog extends DartLintRule {
       final classType = node.staticType;
       if (classType != null &&
           _buttonTypeChecker.isAssignableFromType(classType)) {
+        // print('----------------------');
         final argumentList = node.argumentList;
         for (final argument in argumentList.arguments) {
           if (argument is NamedExpression &&
               argument.name.label.name == 'onPressed') {
             final onPressedExpression = argument.expression;
-
+            // print('topLevelOnPressed: $onPressedExpression');
             final visitor = _LogEventCallFinder();
             onPressedExpression.visitChildren(visitor);
-
             if (!visitor.foundLogEventCall) {
+              // print('*********** NO LOG EVENT FOUND ************');
               reporter.reportErrorForNode(_code, node);
             }
           }
@@ -67,8 +68,35 @@ class _LogEventCallFinder extends RecursiveAstVisitor<void> {
 
   @override
   void visitMethodInvocation(MethodInvocation node) {
+    // print('visiting ${node.methodName}');
     if (node.methodName.name == 'logEvent') {
       foundLogEventCall = true;
+    }
+    final invokedElement = node.methodName.staticElement;
+    // print('Associated element: $invokedElement');
+
+    if (invokedElement is FunctionElement &&
+        invokedElement.name == 'logEvent') {
+      foundLogEventCall = true;
+    } else if (invokedElement is ExecutableElement) {
+      final declaration = invokedElement.declaration;
+      // print(declaration.type);
+      // print('resolved element $declaration');
+
+      // Resolve the called method and visit its declaration
+      if (declaration is FunctionDeclaration) {
+        final functionDeclaration = declaration as FunctionDeclaration;
+        // print(functionDeclaration.functionExpression.body);
+        functionDeclaration.functionExpression.body.accept(this);
+      } else if (declaration is MethodDeclaration) {
+        final methodDeclaration = declaration as MethodDeclaration;
+        // print(methodDeclaration.body);
+        methodDeclaration.body.accept(this);
+      } else if (declaration is ConstructorDeclaration) {
+        final constuctorDeclaration = declaration as ConstructorDeclaration;
+        // print(constuctorDeclaration.body);
+        constuctorDeclaration.body.accept(this);
+      }
     }
   }
 }
